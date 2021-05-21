@@ -82,7 +82,9 @@ def random_graph(n, max_edge_num):
         for j in range(n):
             if capacities[i][j] > 0:
                 costs[i][j] = build_trivial_cost(capacities[i][j])
-    
+            else:
+                costs[i][j] = lambda flow: 0
+
     return Graph(n, positions, flow, capacities, costs)
 
 def show_graph(g):
