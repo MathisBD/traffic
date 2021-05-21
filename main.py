@@ -3,5 +3,5 @@ from random import seed
 
 seed(42)
 
-g = random_graph(10, 15)
+g = random_graph(10, 17)
 show_graph(g)

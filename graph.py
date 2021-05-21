@@ -30,6 +30,8 @@ def intersect(line1, line2):
 def can_add_edge(capacities, positions, a, b): 
     if a == b:
         return False 
+    if capacities[a][b] > 0 or capacities[b][a] > 0:
+        return False
 
     n = len(positions)
     for i in range(n):
@@ -90,5 +92,7 @@ def show_graph(g):
             if g.capacities[i][j] > 0:
                 xx = [g.positions[i][0], g.positions[j][0]]
                 yy = [g.positions[i][1], g.positions[j][1]]
-                plt.plot(xx, yy)
+                plt.plot(xx, yy, 'b')
+                plt.text((xx[0] + xx[1]) / 2.0, 0.01 + (yy[0] + yy[1]) / 2.0, \
+                    "%.1f/%.1f" % (g.flow[i][j], g.capacities[i][j]))
     plt.show()
