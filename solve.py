@@ -14,7 +14,7 @@ def cost(x, g):
     res = 0
     for i in range(g.n):
         for j in range(g.n):
-            res += integrate.quad(g.costs[i][j], 0, x[i*g.n + j])
+            res += integrate.quad(g.costs[i][j], 0, x[i*g.n + j])[0]
     return res 
 
 def solve(g, source):
@@ -23,7 +23,7 @@ def solve(g, source):
 
     n = g.n
     x0 = np.full((n*n,), 0.0)
-    bounds = Bounds(np.full((n*n,), 0), np.array(g.capacities).flatten())
+    bounds = Bounds(np.zeros((n*n,)), np.array(g.capacities).flatten(), keep_feasible=True)
 
     # constraint matrix for junctions
     A = np.zeros((n, n*n))
@@ -32,11 +32,13 @@ def solve(g, source):
         for j in range(n):
             if g.capacities[i][j] > 0:
                 A[i, i*g.n + j] = 1
+            if g.capacities[j][i] > 0:
+                A[i, j*g.n + i] = -1
     junc_constraint = LinearConstraint(A, np.array(source), np.array(source))
 
-    print("starting")
-    result = minimize(cost, x0, args=(g,), jac=jac, bounds=bounds)
-    print("ended")
+    result = minimize(cost, x0, args=(g,), bounds=bounds, \
+        constraints=junc_constraint, tol=1e-3, method='trust-constr')
+    print("ended with message :", result.message)
     
     for i in range(g.n):
         for j in range(g.n):

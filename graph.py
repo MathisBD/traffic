@@ -17,7 +17,7 @@ class Graph:
 
 def build_trivial_cost(capacity):
     def cost(flow):
-        return flow / float(capacity)
+        return 1
     return cost
 
 
@@ -88,13 +88,30 @@ def random_graph(n, max_edge_num):
     return Graph(n, positions, flow, capacities, costs)
 
 def show_graph(g):
-    plt.plot(*list(zip(*g.positions)), 'ro')
+    max_flow = 0
+    for i in range(g.n):
+        for j in range(g.n):
+            max_flow = max(g.flow[i][j], max_flow)
+    
+    for i in range(g.n):
+        plt.text(g.positions[i][0], g.positions[i][1], "%d" % i)
+    
+    def draw_edge(i, j):
+        if max_flow == 0:
+            w = 0.5
+        else:
+            w = g.flow[i][j] / max_flow
+        w *= 0.01
+
+        a = g.positions[i]
+        b = g.positions[j]
+        plt.arrow(a[0], a[1], b[0] - a[0], b[1] - a[1], \
+            width=w, head_width=max(3*w, 3*0.005), length_includes_head=True)
+        plt.text((a[0] + b[0]) / 2.0, 0.01 + (a[1] + b[1]) / 2.0, \
+            "%.2f/%.2f" % (g.flow[i][j], g.capacities[i][j]))
+
     for i in range(g.n):
         for j in range(g.n):
             if g.capacities[i][j] > 0:
-                xx = [g.positions[i][0], g.positions[j][0]]
-                yy = [g.positions[i][1], g.positions[j][1]]
-                plt.plot(xx, yy, 'b')
-                plt.text((xx[0] + xx[1]) / 2.0, 0.01 + (yy[0] + yy[1]) / 2.0, \
-                    "%.1f/%.1f" % (g.flow[i][j], g.capacities[i][j]))
+                draw_edge(i, j)
     plt.show()
