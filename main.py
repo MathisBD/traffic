@@ -10,8 +10,8 @@ g = random_graph(10, 100)
 #show_graph(g)
 
 source = [0 for _ in range(g.n)]
-source[8] = 2
-source[3] = -2
+source[8] = 3
+source[3] = -3
 solve(g, source)
 
 for i in range(g.n):
