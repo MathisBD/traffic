@@ -26,6 +26,7 @@ def solve(G, source):
 
     n = G.graph["n"]
     x0 = np.full((n*n,), 0)
+    # positivity contraints
     bounds = Bounds(np.zeros((n*n,)), np.full((n*n,), np.infty))
 
     # constraint matrix for junctions
