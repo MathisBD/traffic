@@ -1,25 +1,22 @@
-
-from collections import namedtuple
-from typing import NamedTuple
+import pygraphviz as pgv
+import networkx as nx
+import numpy as np
 from random import random, shuffle
-from collections.abc import Callable
-import matplotlib.pyplot as plt
 from linesegmentintersections import bentley_ottman
 
 
-class Graph:
-    def __init__(self, n, positions, flow, capacities, costs):
-        self.n = n
-        self.positions = positions 
-        self.flow = flow
-        self.capacities = capacities 
-        self.costs = costs
+MIN_DIST = 0.1
+COST_EPSILON = 1e-3
 
-def build_trivial_cost(capacity):
-    def cost(flow):
-        return 1
-    return cost
 
+def dist(a, b):
+    return np.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+
+def can_add_pos(p, positions):
+    for p2 in positions:
+        if dist(p, p2) < MIN_DIST:
+            return False 
+    return True
 
 def intersect(line1, line2):
     if bentley_ottman([line1, line2]):
@@ -27,91 +24,90 @@ def intersect(line1, line2):
     else:
         return False     
 
-def can_add_edge(capacities, positions, a, b): 
-    if a == b:
+def can_add_edge(x, y, true_edges, positions):
+    if x == y:
         return False 
-    if capacities[a][b] > 0 or capacities[b][a] > 0:
+    if (x, y) in true_edges:
         return False
-
-    n = len(positions)
-    for i in range(n):
-        for j in range(n):
-            if capacities[i][j] == 0:
-                continue
-            if a == i or a == j or b == i or b == j:
-                continue 
-            if intersect([positions[a], positions[b]], [positions[i], positions[j]]):  
-                return False 
+    for (a, b) in true_edges:
+        if a == x or a == y or b == x or b == y:
+            continue
+        if intersect((positions[x], positions[y]), (positions[a], positions[b])):
+            return False
     return True 
 
-# will try to put as many as max_edge_num edges, 
-# but can put less if it doesn't manage to.
-def random_graph(n, max_edge_num):
-    # positions
-    positions = [] 
+def generate_graph(n, max_edges):
+    G = nx.DiGraph()
+    G.graph['n'] = n
+    # nodes 
+    positions = []
     for i in range(n):
-        positions.append([random(), random()])
-    
-    # capacities 
-    edges = []
-    for i in range(n):
-        for j in range(n):
-            edges.append((i, j))
+        tries = 0
+        while tries < 100:
+            p = (random(), random())
+            if can_add_pos(p, positions):
+                positions.append(p)
+                G.add_node(i, pos=p)
+                break 
+        if tries >= 100:
+            print("ERROR [generate_graph] : can't find a valid node position")
+                
+    # edges
+    edges = [(i,j) for i in range(n) for j in range(n)]
     shuffle(edges)
-
-    capacities = [[0 for _ in range(n)] for _ in range(n)]
+    # costs
     count = 0
-    for (i, j) in edges:
-        if count >= max_edge_num:
-            break 
-        if can_add_edge(capacities, positions, i, j):
-            capacities[i][j] = 10*random()
+    true_edges = []
+    for (x, y) in edges:
+        if count < max_edges and can_add_edge(x, y, true_edges, positions):
+            G.add_edge(x, y, 
+                cost=lambda f: f, 
+                flow=0,
+                is_true=True)
+            true_edges.append((x,y))
             count += 1
         else:
-            capacities[i][j] = 0
+            G.add_edge(x, y, 
+                cost=lambda f: f / COST_EPSILON,
+                flow=0,
+                is_true=False)
+    return G
 
-    # flow
-    flow = [[0 for _ in range(n)] for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            flow[i][j] = 0
-
-    # costs
-    costs = [[0 for _ in range(n)] for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            if capacities[i][j] > 0:
-                costs[i][j] = build_trivial_cost(capacities[i][j])
-            else:
-                costs[i][j] = lambda flow: 0
-
-    return Graph(n, positions, flow, capacities, costs)
-
-def show_graph(g):
+def draw_graph(G):
+    gv = pgv.AGraph(strict=False, directed=True)
+    
+    # nodes
+    for (x, d) in G.nodes(data=True):
+        p = d["pos"]
+        gv.add_node(x, 
+            pos=("%.2f, %.2f" % (p[0]*10, p[1]*10)),
+            pin="true",
+            color="goldenrod1", 
+            style="filled", 
+            fillcolor="goldenrod1")
+    
+    # get max flow value
     max_flow = 0
-    for i in range(g.n):
-        for j in range(g.n):
-            max_flow = max(g.flow[i][j], max_flow)
+    for (x,y,d) in G.edges(data=True):
+        max_flow = max(max_flow, d['flow'])
     
-    for i in range(g.n):
-        plt.text(g.positions[i][0], g.positions[i][1], "%d" % i)
-    
-    def draw_edge(i, j):
-        if max_flow == 0:
-            w = 0.5
-        else:
-            w = g.flow[i][j] / max_flow
-        w *= 0.01
+    # edges
+    for (x,y,d) in G.edges(data=True):
+        if d['is_true']:
+            # compute alpha value (range 0-255)
+            if max_flow <= 1e-2:
+                alpha = 255
+            else:
+                alpha = 255 * (np.sqrt(d['flow'] / float(max_flow)))
+            alpha = min(max(int(alpha), 0), 255)
 
-        a = g.positions[i]
-        b = g.positions[j]
-        plt.arrow(a[0], a[1], b[0] - a[0], b[1] - a[1], \
-            width=w, head_width=max(3*w, 3*0.005), length_includes_head=True)
-        plt.text((a[0] + b[0]) / 2.0, 0.01 + (a[1] + b[1]) / 2.0, \
-            "%.2f/%.2f" % (g.flow[i][j], g.capacities[i][j]))
+            gv.add_edge(x,y,
+                label=("%.2f" % d['flow']), 
+                color=("#0000CC%2x" % alpha), 
+                penwidth=3)
 
-    for i in range(g.n):
-        for j in range(g.n):
-            if g.capacities[i][j] > 0:
-                draw_edge(i, j)
-    plt.show()
+    gv.node_attr['color'] = 'red'
+    gv.write("graph.dot")
+    gv.draw("graph.png", prog="neato")
+
+
