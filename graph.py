@@ -61,7 +61,8 @@ def generate_graph(n, max_edges):
     for (x, y) in edges:
         if count < max_edges and can_add_edge(x, y, true_edges, positions):
             G.add_edge(x, y, 
-                cost=lambda f: f, 
+                cost=lambda f: f,
+                cost_deriv=lambda f: 1, 
                 flow=0,
                 is_true=True)
             true_edges.append((x,y))
@@ -69,6 +70,7 @@ def generate_graph(n, max_edges):
         else:
             G.add_edge(x, y, 
                 cost=lambda f: f / COST_EPSILON,
+                cost_deriv=lambda f: 1 / COST_EPSILON,
                 flow=0,
                 is_true=False)
     return G

@@ -2,6 +2,15 @@ import numpy as np
 from scipy.optimize import minimize, Bounds, LinearConstraint
 import scipy.integrate as integrate
 
+def cost(x, G):
+    n = G.graph["n"]
+    res = 0
+    for i in range(n):
+        for j in range(n):
+            cost = G[i][j]["cost"]
+            res += integrate.quad(cost, 0, x[i*n+j])[0]
+    return res 
+
 def jac(x, G):
     n = G.graph["n"]
     res = []
@@ -11,14 +20,15 @@ def jac(x, G):
             res.append(cost(x[i*n+j]))
     return res 
 
-def cost(x, G):
+def hess(x, G):
     n = G.graph["n"]
-    res = 0
+    h = np.zeros((n*n, n*n))
     for i in range(n):
         for j in range(n):
-            cost = G[i][j]["cost"]
-            res += integrate.quad(cost, 0, x[i*n+j])[0]
-    return res 
+            cost_deriv = G[i][j]["cost_deriv"]
+            h[i*n+j][i*n+j] = cost_deriv(x[i*n+j])
+    return h 
+
 
 def solve(G, source):
     if np.sum(source) != 0:
@@ -42,7 +52,7 @@ def solve(G, source):
 
     result = minimize(cost, x0, args=(G,), bounds=bounds, \
         constraints=junc_constraint, \
-        jac=jac, tol=1e-5, method='trust-constr')
+        jac=jac, hess=hess, tol=1e-5, method='trust-constr')
     print("ended with message :", result.message)
     
     for i in range(n):
